@@ -1,12 +1,12 @@
 /* -.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.-.
 
-* File Name : find.go
+* File Name : precache.go
 
 * Purpose :
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Wed 26 Mar 2014 01:03:44 AM UTC
+* Last Modified : Thu 27 Mar 2014 11:20:23 PM UTC
 
 * Created By : Kiyor
 
@@ -17,8 +17,10 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/dustin/go-humanize"
 	"github.com/kiyor/gfind/lib"
 	"github.com/vaughan0/go-ini"
+	"github.com/wsxiaoys/terminal/color"
 	"net"
 	"net/http"
 	"net/url"
@@ -177,9 +179,9 @@ func Gourl(host string, fs []gfind.MyFile, wg *sync.WaitGroup) {
 		w.add(1)
 		id := getClient(clients)
 		go func(id int, v gfind.MyFile, w *worker, k int) {
-			if *verbose {
-				fmt.Println("id:", id, v.Path)
-			}
+			// 			if *verbose {
+			// 				fmt.Println("id:", id, v.Path)
+			// 			}
 			clients[id].gogogo(host, v, k)
 			w.done()
 		}(id, v, &w, k)
@@ -221,22 +223,36 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int) {
 		}
 
 		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			color.Printf("@{g}%v %v %v %v\n", k, Url.String(), "StatusCode", resp.StatusCode)
+			continue
+		}
 		var b1, b2, b3 bool
-		//
-		// 		fmt.Println(resp.StatusCode, Url.String())
-		// 		break
-		//
+
 		if val, ok := resp.Header["X-Cache"]; ok {
 			if val[0] == "HIT" {
 				b1 = true
+			} else {
+				if *verbose {
+					color.Printf("@{r}%v %v %v %v %v\n", k, Url.String(), "X-Cache", val[0], humanize.IBytes(uint64(f.Size)))
+				}
+				continue
 			}
+		} else {
+			if *verbose {
+				color.Printf("@{r}%v %v %v\n", k, Url.String(), "X-Cache NULL")
+			}
+			continue
 		}
 		if val, ok := resp.Header["Last-Modified"]; ok {
 			if val[0] == time2fmt(timespec2time(f.Stat.Mtim)) {
 				b2 = true
 			} else {
-				fmt.Println(f.Path, " Header: ", val[0], " File: ", time2fmt(timespec2time(f.Stat.Mtim)))
-				b2 = true
+				color.Printf("@{b}%v %v %v %v %v %v\n", k, Url.String(), " Header: ", val[0], " File: ", time2fmt(timespec2time(f.Stat.Mtim)))
+				c.purge(host, f)
+				continue
+				// 				b2 = true
 			}
 		}
 		if val, ok := resp.Header["Content-Length"]; ok {
@@ -244,15 +260,17 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int) {
 			if int64(s) == f.Size {
 				b3 = true
 			} else {
-				fmt.Println(f.Path, " Header: ", val[0], " File: ", f.Size)
-				b3 = true
+				color.Printf("@{b}%v %v %v %v %v %v\n", k, Url.String(), " Header: ", val[0], " File: ", f.Size)
+				c.purge(host, f)
+				continue
+				// 				b3 = true
 			}
 		}
 		if b1 && b2 && b3 {
 			break
 		}
 
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 	c.unlock()
 }
