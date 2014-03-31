@@ -6,7 +6,7 @@
 
 - Creation Date : 03-25-2014
 
-- Last Modified : Mon 31 Mar 2014 05:22:22 PM UTC
+- Last Modified : Mon 31 Mar 2014 10:17:41 PM UTC
 
 - Created By : Kiyor
 
@@ -37,6 +37,8 @@ proc = 8
 cachestatus = X-Cache
 ; header request timeout
 timeout = 3s
+; if you have [HttpSecureLinkModule](http://wiki.nginx.org/HttpSecureLinkModule)
+security = securityKey
 
 ```
 
