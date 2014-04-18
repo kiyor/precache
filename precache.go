@@ -6,7 +6,7 @@
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Fri 18 Apr 2014 06:57:07 PM UTC
+* Last Modified : Fri 18 Apr 2014 07:34:11 PM UTC
 
 * Created By : Kiyor
 
@@ -201,13 +201,13 @@ func main() {
 	}
 }
 
-func Gourl(host string, fs []gfind.MyFile, wg *sync.WaitGroup) {
+func Gourl(host string, fs []gfind.File, wg *sync.WaitGroup) {
 	var w worker
 	w.counter = new(int)
 	for k, v := range fs {
 		w.add(1)
 		id := getClient(clients)
-		go func(id int, v gfind.MyFile, w *worker, k int) {
+		go func(id int, v gfind.File, w *worker, k int) {
 			clients[id].gogogo(host, v, k, id)
 			w.done()
 		}(id, v, &w, k)
@@ -216,7 +216,7 @@ func Gourl(host string, fs []gfind.MyFile, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func (c *client) purge(host string, f gfind.MyFile, k int, id int) {
+func (c *client) purge(host string, f gfind.File, k int, id int) {
 	var Url *url.URL
 	Url, err := url.Parse(host)
 	chkErr(err)
@@ -242,7 +242,7 @@ func (c *client) purge(host string, f gfind.MyFile, k int, id int) {
 
 }
 
-func ParseNgxSecurityLink(key string, host string, f gfind.MyFile) string {
+func ParseNgxSecurityLink(key string, host string, f gfind.File) string {
 	var Url *url.URL
 	Url, err := url.Parse(host)
 	chkErr(err)
@@ -256,7 +256,7 @@ func ParseNgxSecurityLink(key string, host string, f gfind.MyFile) string {
 	return "st=" + r.Replace(str) + "&e=9999999999"
 }
 
-func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
+func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 	if *purge {
 		c.purge(host, f, k, id)
 	}
@@ -299,16 +299,16 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 			if val[0] == "HIT" {
 				b1 = true
 			} else if val[0] == "UPDATING" || val[0] == "MISS" {
-				t, err := time.ParseDuration(fmt.Sprintf("%dms", f.Size/100000))
+				t, err := time.ParseDuration(fmt.Sprintf("%dms", f.Size()/100000))
 				chkErr(err)
 				if *verbose {
-					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP:%vms\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size)), f.Size/100000)
+					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP:%vms\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size())), f.Size()/100000)
 				}
 				time.Sleep(t)
 				continue
 			} else {
 				if *verbose {
-					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size)))
+					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size())))
 				}
 				time.Sleep(2 * time.Second)
 				continue
@@ -333,7 +333,7 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 		}
 		if val, ok := resp.Header["Content-Length"]; ok {
 			s, _ := strconv.Atoi(val[0])
-			if int64(s) == f.Size {
+			if int64(s) == f.Size() {
 				b3 = true
 			} else {
 				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size)
