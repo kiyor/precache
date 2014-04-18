@@ -6,7 +6,7 @@
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Fri 18 Apr 2014 07:34:11 PM UTC
+* Last Modified : Fri 18 Apr 2014 07:39:05 PM UTC
 
 * Created By : Kiyor
 
@@ -235,9 +235,9 @@ func (c *client) purge(host string, f gfind.File, k int, id int) {
 	resp, err := c.c.Do(req)
 	chkErr(err)
 	if resp.StatusCode == 200 {
-		color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "PURGE:SUCCESS", Url.String(), f.Size)
+		color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "PURGE:SUCCESS", Url.String(), f.Size())
 	} else if resp.StatusCode == 404 {
-		color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "PURGE:NOFILE", Url.String(), f.Size)
+		color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "PURGE:NOFILE", Url.String(), f.Size())
 	}
 
 }
@@ -269,7 +269,7 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 	if security != "" {
 		u += "?" + ParseNgxSecurityLink(security, host, f)
 	}
-	color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "START", Url.String(), f.Size)
+	color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "START", Url.String(), f.Size())
 	req, err := http.NewRequest("HEAD", u, nil)
 	req.Close = true
 	if vhost != "client.com" {
@@ -336,7 +336,7 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 			if int64(s) == f.Size() {
 				b3 = true
 			} else {
-				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size)
+				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size())
 				c.purge(host, f, k, id)
 				continue
 			}
@@ -347,7 +347,7 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 		// if cache hit, size and last mod match, then break loop
 		if b1 && b2 && b3 {
 			if *verbose {
-				color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "FINISH", Url.String(), f.Size)
+				color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "FINISH", Url.String(), f.Size())
 			}
 			break
 		}
