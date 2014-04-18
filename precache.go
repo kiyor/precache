@@ -6,7 +6,7 @@
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Sat 29 Mar 2014 11:10:35 PM UTC
+* Last Modified : Fri 18 Apr 2014 06:57:07 PM UTC
 
 * Created By : Kiyor
 
@@ -287,6 +287,9 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 
 		if resp.StatusCode != 200 {
 			color.Printf("@{g}%6v-%-2d %v %v %v\n", k, id, Url.String(), "StatusCode", resp.StatusCode)
+			if resp.StatusCode == 404 {
+				break
+			}
 			time.Sleep(5 * time.Second)
 			continue
 		}
