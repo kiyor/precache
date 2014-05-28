@@ -6,7 +6,7 @@
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Fri 18 Apr 2014 06:57:07 PM UTC
+* Last Modified : Wed 28 May 2014 12:13:58 AM UTC
 
 * Created By : Kiyor
 
@@ -201,13 +201,13 @@ func main() {
 	}
 }
 
-func Gourl(host string, fs []gfind.MyFile, wg *sync.WaitGroup) {
+func Gourl(host string, fs []gfind.File, wg *sync.WaitGroup) {
 	var w worker
 	w.counter = new(int)
 	for k, v := range fs {
 		w.add(1)
 		id := getClient(clients)
-		go func(id int, v gfind.MyFile, w *worker, k int) {
+		go func(id int, v gfind.File, w *worker, k int) {
 			clients[id].gogogo(host, v, k, id)
 			w.done()
 		}(id, v, &w, k)
@@ -216,7 +216,7 @@ func Gourl(host string, fs []gfind.MyFile, wg *sync.WaitGroup) {
 	wg.Done()
 }
 
-func (c *client) purge(host string, f gfind.MyFile, k int, id int) {
+func (c *client) purge(host string, f gfind.File, k int, id int) {
 	var Url *url.URL
 	Url, err := url.Parse(host)
 	chkErr(err)
@@ -235,14 +235,14 @@ func (c *client) purge(host string, f gfind.MyFile, k int, id int) {
 	resp, err := c.c.Do(req)
 	chkErr(err)
 	if resp.StatusCode == 200 {
-		color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "PURGE:SUCCESS", Url.String(), f.Size)
+		color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "PURGE:SUCCESS", Url.String(), f.Size())
 	} else if resp.StatusCode == 404 {
-		color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "PURGE:NOFILE", Url.String(), f.Size)
+		color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "PURGE:NOFILE", Url.String(), f.Size())
 	}
 
 }
 
-func ParseNgxSecurityLink(key string, host string, f gfind.MyFile) string {
+func ParseNgxSecurityLink(key string, host string, f gfind.File) string {
 	var Url *url.URL
 	Url, err := url.Parse(host)
 	chkErr(err)
@@ -256,7 +256,8 @@ func ParseNgxSecurityLink(key string, host string, f gfind.MyFile) string {
 	return "st=" + r.Replace(str) + "&e=9999999999"
 }
 
-func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
+// this is just a single file precache
+func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 	if *purge {
 		c.purge(host, f, k, id)
 	}
@@ -269,7 +270,7 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 	if security != "" {
 		u += "?" + ParseNgxSecurityLink(security, host, f)
 	}
-	color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "START", Url.String(), f.Size)
+	color.Printf("%6v-%-2d @{y}%-17v@{|} %v %v\n", k, id, "START", Url.String(), f.Size())
 	req, err := http.NewRequest("HEAD", u, nil)
 	req.Close = true
 	if vhost != "client.com" {
@@ -285,45 +286,55 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 
 		defer resp.Body.Close()
 
+		// if http resp is not 200, that's means have some err, then skip this file.
 		if resp.StatusCode != 200 {
 			color.Printf("@{g}%6v-%-2d %v %v %v\n", k, id, Url.String(), "StatusCode", resp.StatusCode)
+			// normally it shouldn't be 404, if it is, then means path is not correct. stop do loop
 			if resp.StatusCode == 404 {
 				break
 			}
+			// other wise, wait 5s for user consider, then start from beginning
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		var b1, b2, b3 bool
 
+		// if it has cache status header, then
 		if val, ok := resp.Header[cacheStatus]; ok {
+			// if cache status is HIT, then everthing is expected
 			if val[0] == "HIT" {
 				b1 = true
+				// if it is doing updating or it is miss
 			} else if val[0] == "UPDATING" || val[0] == "MISS" {
-				t, err := time.ParseDuration(fmt.Sprintf("%dms", f.Size/100000))
+				// set sleep time depends on file size then start from beginning
+				t, err := time.ParseDuration(fmt.Sprintf("%dms", f.Size()/100000))
 				chkErr(err)
 				if *verbose {
-					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP:%vms\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size)), f.Size/100000)
+					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP:%vms\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size())), f.Size()/100000)
 				}
 				time.Sleep(t)
 				continue
 			} else {
+				// if not HIT/UPDATING/MISS then print result and seep 2s, start from beginning
 				if *verbose {
-					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size)))
+					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size())))
 				}
 				time.Sleep(2 * time.Second)
 				continue
 			}
-		} else {
+		} else { // if has no cache status header, then means missing setup, output debug information and start from beginning
 			if *verbose {
 				color.Printf("%6v-%-2d @{r}%7s:%-9v@{|} %v SLEEP\n", k, id, cacheStatus, "NULL", Url.String())
 			}
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		// if header has "Last-Modified" which it should have by default.
 		if val, ok := resp.Header["Last-Modified"]; ok {
+			// if time match on orginal server then it is good
 			if val[0] == time2fmt(timespec2time(f.Stat.Mtim)) {
 				b2 = true
-			} else {
+			} else { // else means file need recache, then purge and redo this file from beginning
 				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", time2fmt(timespec2time(f.Stat.Mtim)))
 				c.purge(host, f, k, id)
 				continue
@@ -331,12 +342,14 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 		} else {
 			color.Printf("@{g}%6v-%-2d %-17v %v %v\n", k, id, "NO:Last-Modified", Url.String())
 		}
+		// if header has "Content-Length" which it should have by default
 		if val, ok := resp.Header["Content-Length"]; ok {
 			s, _ := strconv.Atoi(val[0])
-			if int64(s) == f.Size {
+			// if size match on orginal server then it is good
+			if int64(s) == f.Size() {
 				b3 = true
-			} else {
-				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size)
+			} else { // else means file need recache, then purge and redo this file from beginning
+				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size())
 				c.purge(host, f, k, id)
 				continue
 			}
@@ -347,7 +360,7 @@ func (c *client) gogogo(host string, f gfind.MyFile, k int, id int) {
 		// if cache hit, size and last mod match, then break loop
 		if b1 && b2 && b3 {
 			if *verbose {
-				color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "FINISH", Url.String(), f.Size)
+				color.Printf("%6v-%-2d @{g}%-17v@{|} %v %v\n", k, id, "FINISH", Url.String(), f.Size())
 			}
 			break
 		}
