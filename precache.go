@@ -6,7 +6,7 @@
 
 * Creation Date : 03-19-2014
 
-* Last Modified : Fri 18 Apr 2014 07:39:05 PM UTC
+* Last Modified : Wed 28 May 2014 12:31:47 AM UTC
 
 * Created By : Kiyor
 
@@ -256,6 +256,7 @@ func ParseNgxSecurityLink(key string, host string, f gfind.File) string {
 	return "st=" + r.Replace(str) + "&e=9999999999"
 }
 
+// this is just a single file precache
 func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 	if *purge {
 		c.purge(host, f, k, id)
@@ -285,20 +286,27 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 
 		defer resp.Body.Close()
 
+		// if http resp is not 200, that's means have some err, then skip this file.
 		if resp.StatusCode != 200 {
 			color.Printf("@{g}%6v-%-2d %v %v %v\n", k, id, Url.String(), "StatusCode", resp.StatusCode)
+			// normally it shouldn't be 404, if it is, then means path is not correct. stop do loop
 			if resp.StatusCode == 404 {
 				break
 			}
+			// other wise, wait 5s for user consider, then start from beginning
 			time.Sleep(5 * time.Second)
 			continue
 		}
 		var b1, b2, b3 bool
 
+		// if it has cache status header, then
 		if val, ok := resp.Header[cacheStatus]; ok {
+			// if cache status is HIT, then everthing is expected
 			if val[0] == "HIT" {
 				b1 = true
+				// if it is doing updating or it is miss
 			} else if val[0] == "UPDATING" || val[0] == "MISS" {
+				// set sleep time depends on file size then start from beginning
 				t, err := time.ParseDuration(fmt.Sprintf("%dms", f.Size()/100000))
 				chkErr(err)
 				if *verbose {
@@ -307,23 +315,26 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 				time.Sleep(t)
 				continue
 			} else {
+				// if not HIT/UPDATING/MISS then print result and seep 2s, start from beginning
 				if *verbose {
 					color.Printf("%6v-%-2d @{r}%7s:%-9s@{|} %v Size:%v SLEEP\n", k, id, cacheStatus, val[0], Url.String(), humanize.IBytes(uint64(f.Size())))
 				}
 				time.Sleep(2 * time.Second)
 				continue
 			}
-		} else {
+		} else { // if has no cache status header, then means missing setup, output debug information and start from beginning
 			if *verbose {
 				color.Printf("%6v-%-2d @{r}%7s:%-9v@{|} %v SLEEP\n", k, id, cacheStatus, "NULL", Url.String())
 			}
 			time.Sleep(5 * time.Second)
 			continue
 		}
+		// if header has "Last-Modified" which it should have by default.
 		if val, ok := resp.Header["Last-Modified"]; ok {
+			// if time match on orginal server then it is good
 			if val[0] == time2fmt(timespec2time(f.Stat.Mtim)) {
 				b2 = true
-			} else {
+			} else { // else means file need recache, then purge and redo this file from beginning
 				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", time2fmt(timespec2time(f.Stat.Mtim)))
 				c.purge(host, f, k, id)
 				continue
@@ -331,11 +342,13 @@ func (c *client) gogogo(host string, f gfind.File, k int, id int) {
 		} else {
 			color.Printf("@{g}%6v-%-2d %-17v %v %v\n", k, id, "NO:Last-Modified", Url.String())
 		}
+		// if header has "Content-Length" which it should have by default
 		if val, ok := resp.Header["Content-Length"]; ok {
 			s, _ := strconv.Atoi(val[0])
+			// if size match on orginal server then it is good
 			if int64(s) == f.Size() {
 				b3 = true
-			} else {
+			} else { // else means file need recache, then purge and redo this file from beginning
 				color.Printf("@{b}%6v-%-2d %v %v %v %v %v\n", k, id, Url.String(), " Header: ", val[0], " File: ", f.Size())
 				c.purge(host, f, k, id)
 				continue
